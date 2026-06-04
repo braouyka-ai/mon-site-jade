@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dropshipping AI Builder</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.40.0/min/vs/loader.min.js"></script>
+  <style>
+    #editor-container {
+      height: 500px;
+      border: 1px solid #e2e8f0;
+      border-radius: 0.5rem;
+    }
+    #chat-container {
+      height: 400px;
+      overflow-y: auto;
+    }
+    .message {
+      margin-bottom: 1rem;
+      padding: 0.75rem 1rem;
+      border-radius: 0.5rem;
+    }
+    .user-message {
+      background-color: #e5e7eb;
+      margin-left: 2rem;
+    }
+    .ai-message {
+      background-color: #dbeafe;
+      margin-right: 2rem;
+    }
+    .hidden {
+      display: none;
+    }
+  </style>
+</head>
+<body class="bg-gray-50">
+  <!-- Header -->
+  <header class="bg-indigo-700 text-white shadow-md">
+    <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+      <h1 class="text-2xl font-bold">Dropshipping AI Builder</h1>
+      <div class="flex space-x-4">
+        <button onclick="showTab('chat')" class="hover:text-indigo-200">
+          <i class="fas fa-comments mr-1"></i> Chat
+        </button>
+        <button onclick="showTab('editor')" class="hover:text-indigo-200">
+          <i class="fas fa-code mr-1"></i> Éditeur
+        </button>
+        <button onclick="showTab('preview')" class="hover:text-indigo-200">
+          <i class="fas fa-eye mr-1"></i> Prévisualisation
+        </button>
+        <a href="https://github.com/TON_UTILISATEUR/dropshipping-ai-builder" target="_blank" class="hover:text-indigo-200">
+          <i class="fab fa-github"></i>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="container mx-auto px-4 py-8">
+    <!-- Onglet Chat -->
+    <div id="chat-tab" class="tab-content">
+      <div class="max-w-3xl mx-auto bg-white rounded-lg shadow-md p-6">
+        <h2 class="text-xl font-semibold mb-4">Chat avec Mistral AI</h2>
+        <div id="chat-container" class="mb-4"></div>
+        <div class="flex">
+          <input
+            type="text"
+            id="user-input"
+            placeholder="Ex: Génère-moi une page 'Boutique' avec Tailwind CSS..."
+            class="flex-1 p-3 border border-gray-300 rounded-l-md focus:ring-indigo-500 focus:border-indigo-500"
+            autocomplete="off"
+          >
+          <button
+            onclick="sendMessage()"
+            class="bg-indigo-600 text-white px-4 py-3 rounded-r-md hover:bg-indigo-700"
+          >
+            <i class="fas fa-paper-plane"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Onglet Éditeur -->
+    <div id="editor-tab" class="tab-content hidden">
+      <div class="max-w-4xl mx-auto bg-white rounded-lg shadow-md p-6">
+        <h2 class="text-xl font-semibold mb-4">Éditeur de code</h2>
+        <div class="mb-4">
+          <label for="file-name" class="block text-sm font-medium text-gray-700 mb-1">Nom du fichier</label>
+          <div class="flex space-x-2">
+            <input
+              type="text"
+              id="file-name"
+              placeholder="Ex: boutique.html"
+              class="flex-1 p-2 border border-gray-300 rounded-md"
+            >
+            <button
+              onclick="createNewFile()"
+              class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700"
+            >
+              <i class="fas fa-plus mr-1"></i> Nouveau fichier
+            </button>
+            <button
+              onclick="saveFile()"
+              class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
+            >
+              <i class="fas fa-save mr-1"></i> Sauvegarder
+            </button>
+          </div>
+        </div>
+        <div id="editor-container"></div>
+      </div>
+    </div>
+
+    <!-- Onglet Prévisualisation -->
+    <div id="preview-tab" class="tab-content hidden">
+      <div class="max-w-4xl mx-auto bg-white rounded-lg shadow-md p-6">
+        <h2 class="text-xl font-semibold mb-4">Prévisualisation</h2>
+        <iframe
+          id="preview-iframe"
+          class="w-full h-96 border border-gray-300 rounded-md"
+          sandbox="allow-same-origin allow-scripts"
+        ></iframe>
+      </div>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="bg-gray-800 text-white text-center py-4 mt-8">
+    <p>Powered by Mistral AI | Dropshipping AI Builder © 2026</p>
+  </footer>
+
+  <script>
+    // Variables globales
+    let editor;
+    let currentFile = null;
+    let files = JSON.parse(localStorage.getItem('files')) || {};
+
+    // Initialiser Monaco Editor
+    require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.40.0/min/vs' }});
+    require(['vs/editor/editor.main'], function() {
+      editor = monaco.editor.create(document.getElementById('editor-container'), {
+        value: '',
+        language: 'html',
+        theme: 'vs-light',
+        automaticLayout: true
+      });
+    });
+
+    // Afficher un onglet
+    function showTab(tabName) {
+      document.querySelectorAll('.tab-content').forEach(tab => {
+        tab.classList.add('hidden');
+      });
+      document.getElementById(`${tabName}-tab`).classList.remove('hidden');
+
+      if (tabName === 'preview') {
+        updatePreview();
+      }
+    }
+
+    // Envoyer un message à Mistral AI (simulé pour l'instant)
+    async function sendMessage() {
+      const userInput = document.getElementById('user-input');
+      const message = userInput.value.trim();
+      if (!message) return;
+
+      // Ajoute le message de l'utilisateur au chat
+      addMessage(message, 'user');
+      userInput.value = '';
+
+      // Simule une réponse de Mistral AI
+      const aiResponse = await simulateMistralResponse(message);
+      addMessage(aiResponse, 'ai');
+
+      // Si la réponse contient du code, propose de l'ouvrir dans l'éditeur
+      if (aiResponse.includes('```html') || aiResponse.includes('```javascript') || aiResponse.includes('```css')) {
+        setTimeout(() => {
+          if (confirm("Voulez-vous ouvrir ce code dans l'éditeur ?")) {
+            openCodeInEditor(aiResponse);
+          }
+        }, 500);
+      }
+    }
+
+    // Ajoute un message au chat
+    function addMessage(text, sender) {
+      const chatContainer = document.getElementById('chat-container');
+      const messageDiv = document.createElement('div');
+      messageDiv.className = `message ${sender}-message`;
+      messageDiv.innerHTML = `<p><strong>${sender === 'user' ? 'Toi :' : 'Mistral AI :'}</strong> ${formatMessage(text)}</p>`;
+      chatContainer.appendChild(messageDiv);
+      chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+
+    // Formate le message (pour afficher le code correctement)
+    function formatMessage(text) {
+      return text.replace(/```(\w+)?\n([\s\S]*?)```/g, '<pre class="bg-gray-100 p-2 rounded-md overflow-x-auto"><code>\$2</code></pre>');
+    }
+
+    // Simule une réponse de Mistral AI
+    async function simulateMistralResponse(message) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      if (message.toLowerCase().includes('boutique')) {
+        return `Voici le code HTML pour une page Boutique avec Tailwind CSS :
+
+\`\`\`html
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Boutique - Dropshipping Pro</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50">
+  <header class="bg-white shadow">
+    <div class="container mx-auto px-4 py-3">
+      <h1 class="text-2xl font-bold">Boutique</h1>
+    </div>
+  </header>
+  <main class="container mx-auto px-4 py-8">
+    <div class="grid grid-cols-1 sm\:grid-cols-2 lg\:grid-cols-3 gap-6">
+      <div class="bg-white rounded-lg shadow p-4">
+        <img src="https://via.placeholder.com/300" alt="Produit" class="w-full h-48 object-cover rounded mb-2">
+        <h2 class="font-semibold">Nom du produit</h2>
+        <p class="text-gray-600">Description...</p>
+        <p class="text-indigo-600 font-bold">24.99€</p>
+        <button class="mt-2 w-full bg-indigo-600 text-white py-2 rounded">Ajouter au panier</button>
+      </div>
+    </div>
+  </main>
+</body>
+</html>
+\`\`\`
+Copie ce code dans un fichier \`boutique.html\` pour l'ajouter à ton site.`;
+      }
+      else if (message.toLowerCase().includes('fiche produit')) {
+        return `Voici une fiche produit optimisée SEO pour un terpène :
+
+\`\`\`html
+<div class="bg-white rounded-lg shadow-md p-6 max-w-md mx-auto">
+  <h1 class="text-2xl font-bold mb-2">Terpène Harlequin Trim</h1>
+  <img src="https://via.placeholder.com/400" alt="Terpène Harlequin Trim" class="w-full h-64 object-cover rounded mb-4">
+  <p class="text-gray-600 mb-4">
+    <strong>Description :</strong> Arôme naturel pour cannabis Sativa. Idéal pour les amateurs de saveurs fruitées et florales.
+  </p>
+  <p class="text-indigo-600 font-bold mb-4">Prix : 24.99€</p>
+  <button class="bg-indigo-600 text-white px-4 py-2 rounded hover\:bg-indigo-700 w-full">
+    <i class="fas fa-cart-plus mr-2"></i> Ajouter au panier
+  </button>
+</div>
+\`\`\`
+Tu peux intégrer ce code dans ta page Boutique ou créer un fichier \`product.html\`.`;
+      }
+      else if (message.toLowerCase().includes('edge function') || message.toLowerCase().includes('api')) {
+        return `Voici une Edge Function pour Vercel qui calcule la TVA :
+
+\`\`\`javascript
+// api/calculate-taxes.js
+export const config = {
+  runtime: 'edge',
+};
+
+export default async function handler(req) {
+  if (req.method !== 'POST') return new Response(JSON.stringify({ error: 'Méthode non autorisée' }), { status: 405 });
+
+  const { price, country } = await req.json();
+  if (!price || !country) return new Response(JSON.stringify({ error: 'Prix et pays requis' }), { status: 400 });
+
+  const vatRates = { 'France': 0.20, 'Allemagne': 0.19, 'Espagne': 0.21 };
+  const rate = vatRates[country] || 0.20;
+  const priceHT = parseFloat(price);
+  const priceTTC = priceHT * (1 + rate);
+
+  return new Response(JSON.stringify({
+    priceHT: \`\${priceHT.toFixed(2)}€\`,
+    priceTTC: \`\${priceTTC.toFixed(2)}€\`,
+    vatRate: \`\${rate * 100}%\`
+  }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+}
+\`\`\`
+Copie ce code dans un fichier \`api/calculate-taxes.js\`.`;
+      }
+      else {
+        return `Je peux t'aider à :
+- Générer du **code HTML/CSS/JS** pour ton site.
+- Créer des **Edge Functions** pour Vercel.
+- Optimiser du **contenu SEO**.
+- Automatiser des **calculs** (taxes, délais).
+
+**Exemples de demandes :**
+- *"Génère-moi une page de contact avec un formulaire."*
+- *"Crée une fonction pour calculer les frais de port."*
+- *"Quelle est la meilleure structure pour un site de dropshipping ?"*
+
+Précise ta demande pour une réponse exacte !`;
+      }
+    }
+
+    // Ouvre le code dans l'éditeur
+    function openCodeInEditor(code) {
+      // Extraire le code entre les backticks
+      const codeMatch = code.match(/```(\w+)?\n([\s\S]*?)```/);
+      if (!codeMatch) return;
+
+      const language = codeMatch[1] || 'html';
+      const cleanCode = codeMatch[2].trim();
+
+      // Définir le nom du fichier par défaut
+      let defaultFileName = 'new-file';
+      if (code.includes('boutique')) defaultFileName = 'boutique.html';
+      else if (code.includes('fiche produit')) defaultFileName = 'product.html';
+      else if (code.includes('Edge Function')) defaultFileName = 'api/new-function.js';
+
+      document.getElementById('file-name').value = defaultFileName;
+      currentFile = defaultFileName;
+
+      // Mettre à jour l'éditeur
+      if (editor) {
+        editor.setValue(cleanCode);
+        if (language === 'javascript') {
+          monaco.editor.setModelLanguage(editor.getModel(), 'javascript');
+        } else if (language === 'css') {
+          monaco.editor.setModelLanguage(editor.getModel(), 'css');
+        } else {
+          monaco.editor.setModelLanguage(editor.getModel(), 'html');
+        }
+      }
+
+      // Basculer vers l'onglet Éditeur
+      showTab('editor');
+    }
+
+    // Créer un nouveau fichier
+    function createNewFile() {
+      const fileName = document.getElementById('file-name').value.trim();
+      if (!fileName) return alert("Veuillez entrer un nom de fichier !");
+
+      currentFile = fileName;
+      if (editor) {
+        editor.setValue('');
+      }
+    }
+
+    // Sauvegarder le fichier
+    function saveFile() {
+      if (!currentFile) return alert("Aucun fichier en cours d'édition !");
+
+      const content = editor.getValue();
+      files[currentFile] = content;
+      localStorage.setItem('files', JSON.stringify(files));
+
+      alert(`Fichier "${currentFile}" sauvegardé localement. Pour le déployer, ajoute-le à ton dépôt GitHub.`);
+    }
+
+    // Mettre à jour la prévisualisation
+    function updatePreview() {
+      const iframe = document.getElementById('preview-iframe');
+      const previewFile = document.getElementById('file-name').value;
+
+      if (!files[previewFile]) {
+        iframe.srcdoc = '<p class="p-4">Aucun fichier sélectionné pour la prévisualisation.</p>';
+        return;
+      }
+
+      // Pour les fichiers HTML, on peut les prévisualiser directement
+      if (previewFile.endsWith('.html')) {
+        iframe.srcdoc = files[previewFile];
+      } else {
+        iframe.srcdoc = `<pre class="p-4">${escapeHtml(files[previewFile])}</pre>`;
+      }
+    }
+
+    // Échappe les caractères HTML pour l'affichage dans un iframe
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // Charger un fichier existant
+    function loadFile(fileName) {
+      if (!files[fileName]) return;
+
+      currentFile = fileName;
+      document.getElementById('file-name').value = fileName;
+
+      if (editor) {
+        editor.setValue(files[fileName]);
+      }
+
+      showTab('editor');
+    }
+
+    // Initialiser
+    document.addEventListener('DOMContentLoaded', function() {
+      showTab('chat');
+      addMessage("Bonjour ! Je suis Mistral AI, ton assistant pour construire ton site de dropshipping. Que veux-tu créer aujourd'hui ?", 'ai');
+    });
+  </script>
+</body>
+</html>

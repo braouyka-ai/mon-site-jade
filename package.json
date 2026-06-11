@@ -1,0 +1,1 @@
+{"name":"mon-site-jade","version":"1.0.0","description":"Site dropshipping avec Mistral AI","scripts":{"dev":"vercel dev","build":"vercel build","start":"vercel start"},"dependencies":{"@mistralai/mistralai":"^0.0.12"},"devDependencies":{"vercel":"^33.0.0"}}
